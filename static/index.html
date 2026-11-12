@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101522">
+  <title>Nabz Checker | نبض دلار</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">N</div>
+      <div>
+        <h1>NABZ CHECKER</h1>
+        <p>سامانه مقایسه قیمت بازار</p>
+      </div>
+    </div>
+    <a class="channel" href="https://t.me/dollariran5" target="_blank">
+      کانال نبض دلار ↗
+    </a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span class="eyebrow">MARKET MONITOR</span>
+        <h2>رصد هوشمند قیمت‌ها</h2>
+        <p>مقایسه قیمت منتشرشده در کانال با نرخ مرجع TGJU</p>
+      </div>
+      <div class="status">
+        <span class="dot"></span>
+        <span id="status">در حال اتصال...</span>
+      </div>
+    </section>
+
+    <section class="info">
+      <div>
+        <span>منبع مرجع</span>
+        <strong>TGJU</strong>
+      </div>
+      <div>
+        <span>کانال</span>
+        <strong>@dollariran5</strong>
+      </div>
+      <div>
+        <span>آخرین بروزرسانی</span>
+        <strong id="updated">—</strong>
+      </div>
+    </section>
+
+    <section class="section-title">
+      <div>
+        <h2>جدول مقایسه قیمت</h2>
+        <p>تمام قیمت‌ها به تومان هستند.</p>
+      </div>
+      <button id="refresh">بروزرسانی ↻</button>
+    </section>
+
+    <section class="table-wrap">
+      <div class="table-head">
+        <span>دارایی</span>
+        <span>قیمت کانال</span>
+        <span>قیمت TGJU</span>
+        <span>اختلاف</span>
+      </div>
+      <div id="prices">
+        <div class="loading">در انتظار دریافت اطلاعات...</div>
+      </div>
+    </section>
+
+    <section class="last-message">
+      <h3>آخرین پیام کانال</h3>
+      <p id="message">هنوز پیامی دریافت نشده است.</p>
+    </section>
+
+    <footer>
+      <p>Nabz Checker © 2026</p>
+      <p>اطلاعات صرفاً جهت اطلاع‌رسانی است.</p>
+    </footer>
+  </main>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
