@@ -11,3 +11,15 @@ services:
         sync: false
       - key: CHANNEL_USERNAME
         value: dollariran5
+      - key: TGJU_API_BASE
+        fromService:
+          type: web
+          name: nabz-tgju
+          property: hostport
+
+  - type: web
+    name: nabz-tgju
+    runtime: image
+    plan: free
+    image:
+      url: ghcr.io/amiranmanesh/tgju-api-go:latest
