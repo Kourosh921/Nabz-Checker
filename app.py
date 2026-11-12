@@ -23,13 +23,18 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+
 CHANNEL_USERNAME = os.getenv(
     "CHANNEL_USERNAME", "dollariran5"
 ).strip().lstrip("@").lower()
 
+# اصلاح خودکار آدرس TGJU
 TGJU_API_BASE = os.getenv(
     "TGJU_API_BASE", "http://localhost:8080"
-).rstrip("/")
+).strip().rstrip("/")
+
+if not TGJU_API_BASE.startswith(("http://", "https://")):
+    TGJU_API_BASE = "http://" + TGJU_API_BASE
 
 DATA_FILE = Path(
     os.getenv("DATA_FILE", str(BASE_DIR / "state.json"))
@@ -55,7 +60,11 @@ ASSETS = {
     },
     "طلای ۱۸ عیار": {
         "key": "geram18",
-        "aliases": ["طلای ۱۸ عیار", "طلای 18 عیار", "گرم طلای ۱۸"]
+        "aliases": [
+            "طلای ۱۸ عیار",
+            "طلای 18 عیار",
+            "گرم طلای ۱۸"
+        ]
     },
     "سکه امامی": {
         "key": "sekeb",
@@ -88,7 +97,6 @@ state = {
     "errors": []
 }
 
-
 # ---------------- HELPERS ----------------
 
 def normalize_digits(value):
@@ -117,7 +125,6 @@ def extract_number(value):
 
 def parse_channel_message(message):
     found = {}
-
     message = normalize_digits(message)
 
     for name, asset in ASSETS.items():
@@ -125,7 +132,7 @@ def parse_channel_message(message):
             pattern = (
                 re.escape(alias)
                 + r"\s*[:：\-]?\s*"
-                + r"([\d۰-۹٠-٩,٬]+(?:\.\d+)?)"
+                + r"([\d,٬]+(?:\.\d+)?)"
             )
 
             match = re.search(
@@ -145,11 +152,6 @@ def parse_channel_message(message):
 
 
 def find_price_value(data):
-    """
-    تلاش برای استخراج قیمت از پاسخ‌های رایج JSON.
-    ساختار واقعی پاسخ API باید هنگام اتصال بررسی شود.
-    """
-
     if isinstance(data, (int, float, str)):
         return extract_number(data)
 
@@ -158,7 +160,6 @@ def find_price_value(data):
             result = find_price_value(item)
             if result is not None:
                 return result
-        return None
 
     if isinstance(data, dict):
         preferred_keys = [
@@ -184,56 +185,6 @@ def find_price_value(data):
                     return result
 
     return None
-
-
-# ---------------- TGJU ----------------
-
-def get_tgju_price(key):
-    url = f"{TGJU_API_BASE}/v1/items/{key}"
-
-    response = session.get(url, timeout=20)
-    response.raise_for_status()
-
-    data = response.json()
-    value = find_price_value(data)
-
-    if value is None:
-        raise ValueError(
-            f"قیمت معتبر برای {key} در پاسخ TGJU پیدا نشد"
-        )
-
-    # API مورد استفاده باید قیمت را به ریال برگرداند.
-    # تبدیل ریال به تومان:
-    return value / 10
-
-
-def refresh_tgju():
-    prices = {}
-    errors = []
-
-    for name, asset in ASSETS.items():
-        try:
-            prices[name] = get_tgju_price(asset["key"])
-        except Exception as exc:
-            logging.warning("TGJU %s: %s", name, exc)
-            errors.append(f"{name}: {exc}")
-
-    with lock:
-        if prices:
-            state["tgju"] = prices
-            state["updated_at"] = time.strftime(
-                "%Y-%m-%d %H:%M:%S",
-                time.gmtime()
-            )
-
-        state["errors"] = errors
-
-        if prices:
-            state["status"] = "دریافت قیمت از TGJU انجام شد"
-        else:
-            state["status"] = "دریافت قیمت از TGJU ناموفق بود"
-
-    save_state()
 
 
 # ---------------- STORAGE ----------------
@@ -277,9 +228,69 @@ def load_state():
         logging.exception("Loading state failed")
 
 
+# ---------------- TGJU ----------------
+
+def get_tgju_price(key):
+    url = f"{TGJU_API_BASE}/v1/items/{key}"
+
+    response = session.get(
+        url,
+        timeout=20
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    value = find_price_value(data)
+
+    if value is None:
+        raise ValueError(
+            f"قیمت معتبر برای {key} پیدا نشد"
+        )
+
+    # تبدیل ریال به تومان
+    return value / 10
+
+
+def refresh_tgju():
+    prices = {}
+    errors = []
+
+    for name, asset in ASSETS.items():
+        try:
+            prices[name] = get_tgju_price(asset["key"])
+
+        except Exception as exc:
+            logging.warning("TGJU %s: %s", name, exc)
+            errors.append(f"{name}: {exc}")
+
+    with lock:
+        if prices:
+            state["tgju"] = {
+                **state["tgju"],
+                **prices
+            }
+
+            state["updated_at"] = time.strftime(
+                "%Y-%m-%d %H:%M:%S",
+                time.gmtime()
+            )
+
+            state["status"] = "دریافت قیمت از TGJU انجام شد"
+
+        else:
+            state["status"] = "دریافت قیمت از TGJU ناموفق بود"
+
+        state["errors"] = errors
+
+    save_state()
+
+
 # ---------------- TELEGRAM ----------------
 
 def telegram_request(method, params=None):
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN تنظیم نشده است")
+
     url = (
         f"https://api.telegram.org/"
         f"bot{BOT_TOKEN}/{method}"
@@ -316,9 +327,7 @@ def telegram_loop():
         try:
             params = {
                 "timeout": POLL_TIMEOUT,
-                "allowed_updates": json.dumps(
-                    ["channel_post"]
-                )
+                "allowed_updates": json.dumps(["channel_post"])
             }
 
             if offset is not None:
@@ -357,9 +366,11 @@ def telegram_loop():
                 with lock:
                     state["channel"] = prices
                     state["last_message"] = message
-                    state["status"] = (
-                        "پیام جدید کانال دریافت شد"
-                    )
+                    state["status"] = "پیام جدید کانال دریافت شد"
+
+                logging.info(
+                    "Telegram channel message received"
+                )
 
                 refresh_tgju()
                 save_state()
@@ -369,9 +380,7 @@ def telegram_loop():
 
             with lock:
                 state["errors"] = [str(exc)]
-                state["status"] = (
-                    "خطا در دریافت پیام تلگرام"
-                )
+                state["status"] = "خطا در دریافت پیام تلگرام"
 
             time.sleep(5)
 
@@ -382,6 +391,7 @@ def tgju_background_loop():
     while True:
         try:
             refresh_tgju()
+
         except Exception:
             logging.exception("Background TGJU refresh failed")
 
@@ -391,6 +401,9 @@ def tgju_background_loop():
 @app.on_event("startup")
 def startup():
     load_state()
+
+    logging.info("Nabz Checker started")
+    logging.info("TGJU API: %s", TGJU_API_BASE)
 
     threading.Thread(
         target=telegram_loop,
