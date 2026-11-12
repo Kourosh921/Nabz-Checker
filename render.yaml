@@ -12,10 +12,7 @@ services:
       - key: CHANNEL_USERNAME
         value: dollariran5
       - key: TGJU_API_BASE
-        fromService:
-          type: web
-          name: nabz-tgju
-          property: hostport
+        value: https://nabz-tgju.onrender.com
 
   - type: web
     name: nabz-tgju
